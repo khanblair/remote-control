@@ -34,11 +34,29 @@ yourself — not distributed through the Play Store.
 
 ```bash
 ./gradlew assembleDebug     # unsigned debug APK, app/build/outputs/apk/debug/
-./gradlew assembleRelease   # needs a signing config added to app/build.gradle.kts first
+./gradlew assembleRelease   # signed release APK, app/build/outputs/apk/release/
 ```
 
 Requires JDK 17+, Android SDK with `platforms;android-36` and
 `build-tools;36.0.0`+ installed.
+
+### Release signing
+
+`assembleRelease` needs `keystore/keystore.properties` (gitignored, not
+committed) pointing at a keystore. To generate one:
+
+```bash
+keytool -genkeypair -v -storetype PKCS12 \
+  -keystore keystore/remote-control-release.keystore \
+  -alias remotecontrol -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Then copy `keystore/keystore.properties.example` to
+`keystore/keystore.properties` and fill in the values you just set (PKCS12
+keystores use the same password for both the store and the key). Without
+this file, `assembleRelease` still succeeds but produces an unsigned APK
+that Android will refuse to install — `assembleDebug` needs no setup since
+Android auto-signs debug builds with a throwaway debug key.
 
 ## Provisioning a tablet as Device Owner
 
@@ -90,8 +108,12 @@ can strip that support even when the emulator behaves.
 
 ## Known follow-ups
 
-- No release signing config yet — add one before distributing outside adb.
 - Admin PIN is stored in plain `SharedPreferences`; fine for a PIN-length
   secret gating a physically-controlled device, not intended as strong
   security.
 - No remote fleet dashboard / MDM integration (deferred — see project notes).
+- Keep `keystore/remote-control-release.keystore` somewhere safe outside
+  this repo too — if it's lost, future release builds can't be signed to
+  match tablets already provisioned with this one, and you'd need a fresh
+  signature (and a full reinstall, not just an update) everywhere it's
+  deployed.

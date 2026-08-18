@@ -1,6 +1,15 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+// Local, gitignored signing credentials (see keystore/keystore.properties).
+// Release builds are unsigned — and therefore uninstallable — without this.
+val keystoreProperties = Properties().apply {
+    val propsFile = rootProject.file("keystore/keystore.properties")
+    if (propsFile.exists()) propsFile.inputStream().use { load(it) }
 }
 
 android {
@@ -15,10 +24,24 @@ android {
         versionName = "1.0"
     }
 
+    signingConfigs {
+        if (keystoreProperties.containsKey("storeFile")) {
+            create("release") {
+                storeFile = rootProject.file("keystore/${keystoreProperties["storeFile"]}")
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (keystoreProperties.containsKey("storeFile")) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
