@@ -2,6 +2,7 @@ package com.remotecontrol.kiosk
 
 import android.app.ActivityManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,6 +18,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate: isDeviceOwner=${KioskAdmin.isDeviceOwner(this)} maintenanceMode=${prefs.isMaintenanceMode()}")
         enableEdgeToEdge()
         // Skip while in maintenance mode: re-claiming the Home role here would
         // undo exitKiosk() if the process was killed and relaunched mid-maintenance.
@@ -38,16 +40,39 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        Log.d(TAG, "onResume")
         enableImmersiveMode()
         startLockTaskIfNeeded()
     }
 
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        Log.d(TAG, "onStop")
+    }
+
     private fun startLockTaskIfNeeded() {
-        if (!KioskAdmin.isDeviceOwner(this)) return
-        if (prefs.isMaintenanceMode()) return
+        val isOwner = KioskAdmin.isDeviceOwner(this)
+        val maintenance = prefs.isMaintenanceMode()
         val activityManager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        Log.d(
+            TAG,
+            "startLockTaskIfNeeded: isDeviceOwner=$isOwner maintenanceMode=$maintenance " +
+                "lockTaskModeState=${activityManager.lockTaskModeState}",
+        )
+        if (!isOwner) return
+        if (maintenance) return
         if (activityManager.lockTaskModeState == ActivityManager.LOCK_TASK_MODE_NONE) {
-            startLockTask()
+            try {
+                startLockTask()
+                Log.d(TAG, "startLockTask() called, new state=${activityManager.lockTaskModeState}")
+            } catch (e: Exception) {
+                Log.e(TAG, "startLockTask() threw", e)
+            }
         }
     }
 
@@ -77,5 +102,9 @@ class MainActivity : ComponentActivity() {
         controller.hide(WindowInsetsCompat.Type.systemBars())
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    private companion object {
+        const val TAG = "MainActivity"
     }
 }
